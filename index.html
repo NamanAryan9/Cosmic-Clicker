@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Clicker - Vibe Jam 2025</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Base Styles */
+        :root {
+            --primary: #ff6b6b;
+            --secondary: #4ecdc4;
+            --accent: #ffd700;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'system-ui', sans-serif;
+            overflow: hidden;
+        }
+
+        /* Dynamic Background */
+        .gradient-bg {
+            position: fixed;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+            z-index: -1;
+        }
+
+        /* Start Menu */
+        .start-menu {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            padding: 2rem;
+            border-radius: 1rem;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .start-menu input {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 1rem;
+            width: 100%;
+            margin: 1rem 0;
+            border-radius: 8px;
+            color: white;
+            font-size: 1.1rem;
+        }
+
+        .start-menu button {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            color: white;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .start-menu button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Game UI */
+        .game-ui {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Click Target */
+        .click-target {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.25);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        /* Power-ups */
+        .power-up {
+            position: absolute;
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            animation: float 3s infinite;
+            backdrop-filter: blur(5px);
+            border: 2px solid;
+            cursor: pointer;
+        }
+
+        .power-up i {
+            width: 30px;
+            height: 30px;
+            stroke-width: 1.5;
+        }
+
+        .multiplier { border-color: #ffd700; }
+        .time { border-color: #00ff88; }
+        .mega { border-color: #ff69b4; }
+
+        /* HUD */
+        .hud {
+            position: fixed;
+            top: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 2rem;
+        }
+
+        .hud-item {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            color: white;
+            backdrop-filter: blur(10px);
+        }
+
+        /* Leaderboard */
+        .leaderboard {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1rem;
+            border-radius: 10px;
+            color: white;
+            max-height: 50vh;
+            overflow-y: auto;
+            backdrop-filter: blur(10px);
+            width: 200px;
+        }
+
+        /* Animations */
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+            100% { transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="gradient-bg"></div>
+    
+    <!-- Start Menu -->
+    <div class="start-menu">
+        <h1 style="margin-bottom: 1rem;">🌌 Cosmic Clicker</h1>
+        <input type="text" id="playerName" placeholder="Enter your name">
+        <button onclick="Game.start()">Start Game</button>
+    </div>
+
+    <!-- Game Interface -->
+    <div class="game-ui" id="gameUI">
+        <div class="hud">
+            <div class="hud-item" id="timer">30s</div>
+            <div class="hud-item" id="score">Score: 0</div>
+        </div>
+        
+        <div class="leaderboard" id="leaderboard">
+            <h3>🏆 Leaderboard</h3>
+            <div id="leaderboardEntries"></div>
+        </div>
+    </div>
+
+    <script>
+        class Game {
+            static config = {
+                initialTime: 30,
+                baseSize: 100,
+                difficultyInterval: 5000,
+                powerUpTypes: {
+                    multiplier: { icon: 'zap', color: '#ffd700', effect: '2X' },
+                    time: { icon: 'clock', color: '#00ff88', effect: '+5s' },
+                    mega: { icon: 'gem', color: '#ff69b4', effect: '+50' }
+                }
+            };
+
+            static state = {
+                playerName: '',
+                score: 0,
+                timeLeft: this.config.initialTime,
+                multiplier: 1,
+                difficulty: 1,
+                gameActive: false,
+                targetElement: null,
+                leaderboard: JSON.parse(localStorage.getItem('leaderboard')) || []
+            };
+
+            static init() {
+                this.createTarget();
+                this.setupAudio();
+                this.updateLeaderboard();
+                this.startGameLoop();
+                this.startDifficultyRamp();
+                this.startPowerUpSpawner();
+            }
+
+            static start() {
+                this.state.playerName = document.getElementById('playerName').value || 'Player';
+                document.querySelector('.start-menu').style.display = 'none';
+                document.getElementById('gameUI').style.display = 'block';
+                this.state.gameActive = true;
+                this.init();
+            }
+
+            static createTarget() {
+                this.state.targetElement = document.createElement('div');
+                this.state.targetElement.className = 'click-target';
+                this.resizeTarget();
+                this.moveTarget();
+                this.state.targetElement.onclick = () => this.handleClick();
+                document.getElementById('gameUI').appendChild(this.state.targetElement);
+            }
+
+            static handleClick() {
+                if (!this.state.gameActive) return;
+                
+                this.state.score += 10 * this.state.multiplier;
+                document.getElementById('score').textContent = `Score: ${this.state.score}`;
+                this.playSound(523.25);
+                this.moveTarget();
+                this.resizeTarget();
+            }
+
+            static moveTarget() {
+                const size = parseInt(this.state.targetElement.style.width);
+                this.state.targetElement.style.left = `${Math.random() * (window.innerWidth - size)}px`;
+                this.state.targetElement.style.top = `${Math.random() * (window.innerHeight - size)}px`;
+            }
+
+            static resizeTarget() {
+                const newSize = this.config.baseSize * (0.9 ** this.state.difficulty);
+                this.state.targetElement.style.width = `${newSize}px`;
+                this.state.targetElement.style.height = `${newSize}px`;
+            }
+
+            static spawnPowerUp() {
+                const types = Object.keys(this.config.powerUpTypes);
+                const type = types[Math.floor(Math.random() * types.length)];
+                const config = this.config.powerUpTypes[type];
+
+                const powerUp = document.createElement('div');
+                powerUp.className = `power-up ${type}`;
+                powerUp.style.borderColor = config.color;
+                powerUp.style.left = `${Math.random() * (window.innerWidth - 70)}px`;
+                powerUp.style.top = `${Math.random() * (window.innerHeight - 70)}px`;
+
+                const icon = document.createElement('i');
+                icon.setAttribute('data-lucide', config.icon);
+                powerUp.appendChild(icon);
+
+                const effect = document.createElement('div');
+                effect.textContent = config.effect;
+                effect.style.color = config.color;
+                effect.style.marginTop = '5px';
+                powerUp.appendChild(effect);
+
+                powerUp.onclick = () => this.activatePowerUp(type, powerUp);
+                document.getElementById('gameUI').appendChild(powerUp);
+                lucide.createIcons();
+            }
+
+            static activatePowerUp(type, element) {
+                element.remove();
+                this.playSound(987.77);
+
+                switch(type) {
+                    case 'multiplier':
+                        this.state.multiplier *= 2;
+                        setTimeout(() => this.state.multiplier /= 2, 5000);
+                        break;
+                    case 'time':
+                        this.state.timeLeft += 5;
+                        break;
+                    case 'mega':
+                        this.state.score += 50 * this.state.multiplier;
+                        document.getElementById('score').textContent = `Score: ${this.state.score}`;
+                        break;
+                }
+            }
+
+            static updateLeaderboard() {
+                const entries = this.state.leaderboard
+                    .sort((a, b) => b.score - a.score)
+                    .slice(0, 5)
+                    .map(entry => `<div>${entry.name}: ${entry.score}</div>`)
+                    .join('');
+                
+                document.getElementById('leaderboardEntries').innerHTML = entries;
+            }
+
+            static endGame() {
+                this.state.gameActive = false;
+                this.state.leaderboard.push({
+                    name: this.state.playerName,
+                    score: this.state.score,
+                    date: new Date().toISOString()
+                });
+                localStorage.setItem('leaderboard', JSON.stringify(this.state.leaderboard));
+                
+                alert(`Game Over, ${this.state.playerName}! Final Score: ${this.state.score}`);
+                location.reload();
+            }
+
+            static setupAudio() {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                this.gainNode = this.audioContext.createGain();
+                this.gainNode.connect(this.audioContext.destination);
+            }
+
+            static playSound(frequency) {
+                const oscillator = this.audioContext.createOscillator();
+                const gain = this.audioContext.createGain();
+                
+                oscillator.connect(gain);
+                gain.connect(this.gainNode);
+                
+                oscillator.type = 'square';
+                oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+                
+                gain.gain.setValueAtTime(0.2, this.audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
+                
+                oscillator.start();
+                oscillator.stop(this.audioContext.currentTime + 0.2);
+            }
+
+            static startGameLoop() {
+                const gameLoop = setInterval(() => {
+                    if (!this.state.gameActive) {
+                        clearInterval(gameLoop);
+                        return;
+                    }
+
+                    this.state.timeLeft--;
+                    document.getElementById('timer').textContent = `${this.state.timeLeft}s`;
+
+                    if (this.state.timeLeft <= 0) this.endGame();
+                }, 1000);
+            }
+
+            static startDifficultyRamp() {
+                setInterval(() => {
+                    if (this.state.gameActive) this.state.difficulty++;
+                }, this.config.difficultyInterval);
+            }
+
+            static startPowerUpSpawner() {
+                setInterval(() => {
+                    if (this.state.gameActive) this.spawnPowerUp();
+                }, 2000);
+            }
+        }
+
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
+</body>
+</html>
